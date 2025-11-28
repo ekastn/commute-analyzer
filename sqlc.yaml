@@ -1,0 +1,40 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    schema: "cmd/db/migrations/"
+    queries: "cmd/db/queries/"
+    gen:
+      go:
+        package: "store"
+        out: "internal/store"
+        sql_package: "pgx/v5"
+        emit_interface: true
+        emit_exact_table_names: false
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true
+        overrides:
+          - db_type: "uuid"
+            go_type:
+              import: "github.com/google/uuid"
+              type: "UUID"
+
+          - db_type: "timestamptz"
+            go_type:
+              import: "time"
+              type: "Time"
+
+
+          - column: "commutes.home_point"
+            go_type:
+              import: "github.com/paulmach/orb"
+              type: "Point"
+
+          - column: "commutes.office_point"
+            go_type:
+              import: "github.com/paulmach/orb"
+              type: "Point"
+
+          - column: "commutes.route_geometry"
+            go_type:
+              import: "github.com/paulmach/orb"
+              type: "LineString"
