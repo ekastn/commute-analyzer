@@ -7,8 +7,8 @@ export default function Sidebar({
     onSelect,
     selectedId,
 }: {
-    onSelect: (id: number) => void;
-    selectedId: number | null;
+    onSelect: (id: string) => void;
+    selectedId: string | null;
 }) {
     const { commutes, isLoading } = useCommutes();
 

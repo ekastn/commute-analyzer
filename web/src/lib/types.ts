@@ -1,5 +1,5 @@
 export interface Commute {
-    id: number;
+    id: string;
     name: string;
     home_lng: number;
     home_lat: number;

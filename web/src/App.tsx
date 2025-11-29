@@ -5,7 +5,7 @@ import CommuteForm from "./components/CommuteForm";
 import { Plus } from "lucide-react";
 
 function App() {
-    const [selectedCommuteId, setSelectedCommuteId] = useState<number | null>(null);
+    const [selectedCommuteId, setSelectedCommuteId] = useState<string | null>(null);
     const [isCreating, setIsCreating] = useState(false);
 
     return (

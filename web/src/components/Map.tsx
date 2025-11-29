@@ -9,7 +9,7 @@ const icon = new Icon({
     iconAnchor: [12, 41],
 });
 
-export default function Map({ selectedCommuteId }: { selectedCommuteId: number | null }) {
+export default function Map({ selectedCommuteId }: { selectedCommuteId: string | null }) {
     const center: [number, number] = [-6.2088, 106.8456];
 
     return (
