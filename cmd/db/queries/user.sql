@@ -1,7 +1,6 @@
--- name: GetOrCreateUser :one
+-- name: CreateUser :one
 INSERT INTO users (device_id)
 VALUES ($1)
-ON CONFLICT (device_id) DO NOTHING
 RETURNING user_id;
 
 -- name: GetUserByDeviceId :one

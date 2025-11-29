@@ -12,9 +12,9 @@ import (
 
 type Querier interface {
 	CreateCommute(ctx context.Context, arg CreateCommuteParams) (CreateCommuteRow, error)
+	CreateUser(ctx context.Context, deviceID string) (uuid.UUID, error)
 	DeleteCommute(ctx context.Context, id uuid.UUID) error
 	GetCommute(ctx context.Context, id uuid.UUID) (Commute, error)
-	GetOrCreateUser(ctx context.Context, deviceID string) (uuid.UUID, error)
 	GetUserByDeviceId(ctx context.Context, deviceID string) (uuid.UUID, error)
 	ListCommutesByUser(ctx context.Context, userID uuid.UUID) ([]Commute, error)
 	UpdateCommute(ctx context.Context, arg UpdateCommuteParams) (uuid.UUID, error)

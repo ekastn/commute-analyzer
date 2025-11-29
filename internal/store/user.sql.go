@@ -11,15 +11,14 @@ import (
 	"github.com/google/uuid"
 )
 
-const getOrCreateUser = `-- name: GetOrCreateUser :one
+const createUser = `-- name: CreateUser :one
 INSERT INTO users (device_id)
 VALUES ($1)
-ON CONFLICT (device_id) DO NOTHING
 RETURNING user_id
 `
 
-func (q *Queries) GetOrCreateUser(ctx context.Context, deviceID string) (uuid.UUID, error) {
-	row := q.db.QueryRow(ctx, getOrCreateUser, deviceID)
+func (q *Queries) CreateUser(ctx context.Context, deviceID string) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, createUser, deviceID)
 	var user_id uuid.UUID
 	err := row.Scan(&user_id)
 	return user_id, err

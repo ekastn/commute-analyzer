@@ -48,7 +48,8 @@ func main() {
 
 	queries := store.New(pool)
 	ors := service.NewORSClient(cfg.ORSAPIKey, httpClient)
-	svc := service.NewCommuteService(queries, ors)
+	userService := service.NewUserService(queries)
+	svc := service.NewCommuteService(queries, ors, userService)
 	h := handler.NewCommuteHandler(svc)
 
 	r := gin.Default()

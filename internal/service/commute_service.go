@@ -12,16 +12,17 @@ import (
 )
 
 type CommuteService struct {
-	store store.Querier
-	ors   ORSClient
+	store       store.Querier
+	ors         ORSClient
+	userService *UserService
 }
 
-func NewCommuteService(store store.Querier, ors ORSClient) *CommuteService {
-	return &CommuteService{store: store, ors: ors}
+func NewCommuteService(store store.Querier, ors ORSClient, userService *UserService) *CommuteService {
+	return &CommuteService{store: store, ors: ors, userService: userService}
 }
 
 func (s *CommuteService) CreateCommute(ctx context.Context, req dto.CreateCommuteRequest) (*dto.Commute, error) {
-	userID, err := s.store.GetOrCreateUser(ctx, req.DeviceID)
+	userID, err := s.userService.GetOrCreateUser(ctx, req.DeviceID)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +88,7 @@ func (s *CommuteService) CreateCommute(ctx context.Context, req dto.CreateCommut
 }
 
 func (s *CommuteService) ListCommutes(ctx context.Context, deviceID string) (*dto.ListCommutesResponse, error) {
-	userID, err := s.store.GetOrCreateUser(ctx, deviceID)
+	userID, err := s.userService.GetOrCreateUser(ctx, deviceID)
 	if err != nil {
 		return nil, err
 	}
