@@ -1,16 +1,29 @@
 import { useState } from "react";
 import { useCommutes } from "../hooks/useCommutes";
 import { ArrowLeft, MapPin, Fuel, Calendar } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
 
-export default function CommuteForm({ onBack }: { onBack: () => void }) {
+interface CommuteFormProps {
+    onBack: () => void;
+    draftPoints: {
+        home: { lat: number; lng: number } | null;
+        office: { lat: number; lng: number } | null;
+    };
+    pickingMode: "home" | "office" | null;
+    setPickingMode: (mode: "home" | "office" | null) => void;
+}
+
+export default function CommuteForm({
+    onBack,
+    draftPoints,
+    pickingMode,
+    setPickingMode,
+}: CommuteFormProps) {
     const { createCommute } = useCommutes();
+    const { deviceId } = useAuth();
     const [loading, setLoading] = useState(false);
 
     const [form, setForm] = useState({
-        home_lng: 106.8456,
-        home_lat: -6.2088,
-        office_lng: 106.7891,
-        office_lat: -6.1892,
         vehicle: "motorcycle" as "car" | "motorcycle",
         fuel_price: 10000,
         days_per_week: 5,
@@ -18,11 +31,20 @@ export default function CommuteForm({ onBack }: { onBack: () => void }) {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!draftPoints.home || !draftPoints.office) {
+            alert("Mohon pilih lokasi Rumah dan Kantor di peta.");
+            return;
+        }
+
         setLoading(true);
         try {
             await createCommute({
-                device_id: "mobile-user-123",
+                device_id: deviceId!, // Guaranteed by useAuth/App logic usually, but safe to force here
                 name: "Rute Baru",
+                home_lat: draftPoints.home.lat,
+                home_lng: draftPoints.home.lng,
+                office_lat: draftPoints.office.lat,
+                office_lng: draftPoints.office.lng,
                 ...form,
             });
             onBack();
@@ -46,38 +68,58 @@ export default function CommuteForm({ onBack }: { onBack: () => void }) {
 
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm">
-                    Klik peta di sebelah kanan untuk memilih lokasi Rumah dan Kantor
+                    Pilih lokasi Rumah dan Kantor dengan mengklik tombol di bawah ini, lalu klik pada peta.
                 </div>
 
-                {/* Location Display */}
+                {/* Location Picker Buttons */}
                 <div className="space-y-4">
-                    <div className="bg-white rounded-lg shadow-sm border p-4">
+                    <button
+                        type="button"
+                        onClick={() => setPickingMode("home")}
+                        className={`w-full bg-white rounded-lg shadow-sm border p-4 text-left transition-all ${
+                            pickingMode === "home"
+                                ? "ring-2 ring-blue-500 border-transparent"
+                                : "hover:border-blue-300"
+                        }`}
+                    >
                         <div className="flex items-center gap-3">
                             <div className="bg-green-100 p-2 rounded-full">
                                 <MapPin className="text-green-600" size={20} />
                             </div>
                             <div>
-                                <p className="font-medium">Rumah</p>
-                                <p className="text-sm text-gray-600">
-                                    {form.home_lat.toFixed(5)}, {form.home_lng.toFixed(5)}
+                                <p className="font-medium">Lokasi Rumah</p>
+                                <p className="text-sm text-gray-600 truncate">
+                                    {draftPoints.home
+                                        ? `${draftPoints.home.lat.toFixed(5)}, ${draftPoints.home.lng.toFixed(5)}`
+                                        : "Klik untuk pilih di peta"}
                                 </p>
                             </div>
                         </div>
-                    </div>
+                    </button>
 
-                    <div className="bg-white rounded-lg shadow-sm border p-4">
+                    <button
+                        type="button"
+                        onClick={() => setPickingMode("office")}
+                        className={`w-full bg-white rounded-lg shadow-sm border p-4 text-left transition-all ${
+                            pickingMode === "office"
+                                ? "ring-2 ring-blue-500 border-transparent"
+                                : "hover:border-blue-300"
+                        }`}
+                    >
                         <div className="flex items-center gap-3">
                             <div className="bg-red-100 p-2 rounded-full">
                                 <MapPin className="text-red-600" size={20} />
                             </div>
                             <div>
-                                <p className="font-medium">Kantor</p>
-                                <p className="text-sm text-gray-600">
-                                    {form.office_lat.toFixed(5)}, {form.office_lng.toFixed(5)}
+                                <p className="font-medium">Lokasi Kantor</p>
+                                <p className="text-sm text-gray-600 truncate">
+                                    {draftPoints.office
+                                        ? `${draftPoints.office.lat.toFixed(5)}, ${draftPoints.office.lng.toFixed(5)}`
+                                        : "Klik untuk pilih di peta"}
                                 </p>
                             </div>
                         </div>
-                    </div>
+                    </button>
                 </div>
 
                 {/* Form */}
@@ -137,7 +179,7 @@ export default function CommuteForm({ onBack }: { onBack: () => void }) {
 
                     <button
                         type="submit"
-                        disabled={loading}
+                        disabled={loading || !draftPoints.home || !draftPoints.office}
                         className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-bold py-4 rounded-lg transition"
                     >
                         {loading ? "Menyimpan..." : "Hitung & Simpan"}
