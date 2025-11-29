@@ -8,16 +8,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/paulmach/orb"
 )
 
 type Commute struct {
 	ID            uuid.UUID
 	UserID        uuid.UUID
 	Name          *string
-	HomePoint     orb.Point
-	OfficePoint   orb.Point
-	RouteGeometry orb.LineString
+	HomePoint     interface{}
+	OfficePoint   interface{}
+	RouteGeometry interface{}
 	DistanceKm    float64
 	DurationMin   float64
 	Vehicle       string

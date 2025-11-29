@@ -9,6 +9,7 @@ import (
 	"github.com/ekastn/commute-analyzer/internal/store"
 	"github.com/google/uuid"
 	"github.com/paulmach/orb"
+	"github.com/paulmach/orb/encoding/wkb"
 )
 
 type CommuteService struct {
@@ -36,7 +37,7 @@ func (s *CommuteService) CreateCommute(ctx context.Context, req dto.CreateCommut
 	distanceKm := summary.Distance / 1000
 	durationMin := summary.Duration / 60
 
-	lineString := coordsToLineString(route.Features[0].Geometry.Coordinates[0])
+	lineString := coordsToLineString(route.Features[0].Geometry.Coordinates)
 
 	efficiency := map[string]float64{"car": 10.0, "motorcycle": 2.5}[req.Vehicle]
 	roundTrip := distanceKm * 2
@@ -49,12 +50,19 @@ func (s *CommuteService) CreateCommute(ctx context.Context, req dto.CreateCommut
 		name = fmt.Sprintf("Rute %s (%.1f km)", req.Vehicle, distanceKm)
 	}
 
+	homePoint := orb.Point{req.HomeLng, req.HomeLat}
+	officePoint := orb.Point{req.OfficeLng, req.OfficeLat}
+
+	homeWKB, _ := wkb.Marshal(homePoint)
+	officeWKB, _ := wkb.Marshal(officePoint)
+	routeWKB, _ := wkb.Marshal(lineString)
+
 	row, err := s.store.CreateCommute(ctx, store.CreateCommuteParams{
 		UserID:        userID,
 		Name:          &name,
-		HomePoint:     orb.Point{req.HomeLng, req.HomeLat},
-		OfficePoint:   orb.Point{req.OfficeLng, req.OfficeLat},
-		RouteGeometry: lineString,
+		HomePoint:     homeWKB,
+		OfficePoint:   officeWKB,
+		RouteGeometry: routeWKB,
 		DistanceKm:    distanceKm,
 		DurationMin:   durationMin,
 		Vehicle:       req.Vehicle,
@@ -106,13 +114,19 @@ func (s *CommuteService) ListCommutes(ctx context.Context, deviceID string) (*dt
 			name = *r.Name
 		}
 
+		// Unmarshal WKB
+		homeGeom, _ := wkb.Unmarshal(r.HomePoint.([]byte))
+		officeGeom, _ := wkb.Unmarshal(r.OfficePoint.([]byte))
+		homePoint := homeGeom.(orb.Point)
+		officePoint := officeGeom.(orb.Point)
+
 		commutes[i] = dto.Commute{
 			ID:             r.ID,
 			Name:           name,
-			HomeLng:        r.HomePoint.Lon(),
-			HomeLat:        r.HomePoint.Lat(),
-			OfficeLng:      r.OfficePoint.Lon(),
-			OfficeLat:      r.OfficePoint.Lat(),
+			HomeLng:        homePoint.Lon(),
+			HomeLat:        homePoint.Lat(),
+			OfficeLng:      officePoint.Lon(),
+			OfficeLat:      officePoint.Lat(),
 			DistanceKm:     r.DistanceKm,
 			DurationMin:    r.DurationMin,
 			Vehicle:        r.Vehicle,
@@ -143,13 +157,18 @@ func (s *CommuteService) UpdateCommute(ctx context.Context, id uuid.UUID, req dt
 		return nil, err
 	}
 
+	hGeom, _ := wkb.Unmarshal(row.HomePoint.([]byte))
+	oGeom, _ := wkb.Unmarshal(row.OfficePoint.([]byte))
+	hPoint := hGeom.(orb.Point)
+	oPoint := oGeom.(orb.Point)
+
 	commute := &dto.Commute{
 		ID:             row.ID,
 		Name:           *row.Name,
-		HomeLng:        row.HomePoint.Lon(),
-		HomeLat:        row.HomePoint.Lat(),
-		OfficeLng:      row.OfficePoint.Lon(),
-		OfficeLat:      row.OfficePoint.Lat(),
+		HomeLng:        hPoint.Lon(),
+		HomeLat:        hPoint.Lat(),
+		OfficeLng:      oPoint.Lon(),
+		OfficeLat:      oPoint.Lat(),
 		DistanceKm:     row.DistanceKm,
 		DurationMin:    row.DurationMin,
 		Vehicle:        row.Vehicle,
@@ -161,7 +180,6 @@ func (s *CommuteService) UpdateCommute(ctx context.Context, id uuid.UUID, req dt
 		AnnualWorkdays: float64(row.AnnualMinutes) / (60 * 8),
 		CreatedAt:      row.CreatedAt.Format(time.RFC3339),
 	}
-
 	return commute, nil
 }
 

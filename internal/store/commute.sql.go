@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/paulmach/orb"
 )
 
 const createCommute = `-- name: CreateCommute :one
@@ -19,7 +18,11 @@ INSERT INTO commutes (
     distance_km, duration_min, vehicle, fuel_price, days_per_week,
     annual_cost, annual_minutes
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+    $1, $2, 
+    ST_SetSRID(ST_GeomFromWKB($10::bytea), 4326), 
+    ST_SetSRID(ST_GeomFromWKB($11::bytea), 4326), 
+    ST_SetSRID(ST_GeomFromWKB($12::bytea), 4326), 
+    $3, $4, $5, $6, $7, $8, $9
 )
 RETURNING id, annual_cost, annual_minutes, created_at
 `
@@ -27,9 +30,6 @@ RETURNING id, annual_cost, annual_minutes, created_at
 type CreateCommuteParams struct {
 	UserID        uuid.UUID
 	Name          *string
-	HomePoint     orb.Point
-	OfficePoint   orb.Point
-	RouteGeometry orb.LineString
 	DistanceKm    float64
 	DurationMin   float64
 	Vehicle       string
@@ -37,6 +37,9 @@ type CreateCommuteParams struct {
 	DaysPerWeek   int16
 	AnnualCost    int64
 	AnnualMinutes int64
+	HomePoint     []byte
+	OfficePoint   []byte
+	RouteGeometry []byte
 }
 
 type CreateCommuteRow struct {
@@ -50,9 +53,6 @@ func (q *Queries) CreateCommute(ctx context.Context, arg CreateCommuteParams) (C
 	row := q.db.QueryRow(ctx, createCommute,
 		arg.UserID,
 		arg.Name,
-		arg.HomePoint,
-		arg.OfficePoint,
-		arg.RouteGeometry,
 		arg.DistanceKm,
 		arg.DurationMin,
 		arg.Vehicle,
@@ -60,6 +60,9 @@ func (q *Queries) CreateCommute(ctx context.Context, arg CreateCommuteParams) (C
 		arg.DaysPerWeek,
 		arg.AnnualCost,
 		arg.AnnualMinutes,
+		arg.HomePoint,
+		arg.OfficePoint,
+		arg.RouteGeometry,
 	)
 	var i CreateCommuteRow
 	err := row.Scan(
@@ -81,19 +84,43 @@ func (q *Queries) DeleteCommute(ctx context.Context, id uuid.UUID) error {
 }
 
 const getCommute = `-- name: GetCommute :one
-SELECT id, user_id, name, home_point, office_point, route_geometry, distance_km, duration_min, vehicle, fuel_price, days_per_week, annual_cost, annual_minutes, created_at, updated_at FROM commutes WHERE id = $1
+SELECT 
+    id, user_id, name, 
+    ST_AsBinary(home_point) AS home_point, 
+    ST_AsBinary(office_point) AS office_point, 
+    distance_km, duration_min, vehicle, fuel_price, days_per_week, 
+    annual_cost, annual_minutes, created_at, updated_at,
+    ST_AsBinary(route_geometry) AS route_geometry
+FROM commutes WHERE id = $1
 `
 
-func (q *Queries) GetCommute(ctx context.Context, id uuid.UUID) (Commute, error) {
+type GetCommuteRow struct {
+	ID            uuid.UUID
+	UserID        uuid.UUID
+	Name          *string
+	HomePoint     interface{}
+	OfficePoint   interface{}
+	DistanceKm    float64
+	DurationMin   float64
+	Vehicle       string
+	FuelPrice     int32
+	DaysPerWeek   int16
+	AnnualCost    int64
+	AnnualMinutes int64
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	RouteGeometry interface{}
+}
+
+func (q *Queries) GetCommute(ctx context.Context, id uuid.UUID) (GetCommuteRow, error) {
 	row := q.db.QueryRow(ctx, getCommute, id)
-	var i Commute
+	var i GetCommuteRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
 		&i.Name,
 		&i.HomePoint,
 		&i.OfficePoint,
-		&i.RouteGeometry,
 		&i.DistanceKm,
 		&i.DurationMin,
 		&i.Vehicle,
@@ -103,31 +130,55 @@ func (q *Queries) GetCommute(ctx context.Context, id uuid.UUID) (Commute, error)
 		&i.AnnualMinutes,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.RouteGeometry,
 	)
 	return i, err
 }
 
 const listCommutesByUser = `-- name: ListCommutesByUser :many
-SELECT id, user_id, name, home_point, office_point, route_geometry, distance_km, duration_min, vehicle, fuel_price, days_per_week, annual_cost, annual_minutes, created_at, updated_at
+SELECT 
+    id, user_id, name, 
+    ST_AsBinary(home_point) AS home_point, 
+    ST_AsBinary(office_point) AS office_point, 
+    distance_km, duration_min, vehicle, fuel_price, days_per_week, 
+    annual_cost, annual_minutes, created_at, updated_at,
+    ST_AsBinary(route_geometry) AS route_geometry
 FROM commutes WHERE user_id = $1 ORDER BY created_at DESC
 `
 
-func (q *Queries) ListCommutesByUser(ctx context.Context, userID uuid.UUID) ([]Commute, error) {
+type ListCommutesByUserRow struct {
+	ID            uuid.UUID
+	UserID        uuid.UUID
+	Name          *string
+	HomePoint     interface{}
+	OfficePoint   interface{}
+	DistanceKm    float64
+	DurationMin   float64
+	Vehicle       string
+	FuelPrice     int32
+	DaysPerWeek   int16
+	AnnualCost    int64
+	AnnualMinutes int64
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	RouteGeometry interface{}
+}
+
+func (q *Queries) ListCommutesByUser(ctx context.Context, userID uuid.UUID) ([]ListCommutesByUserRow, error) {
 	rows, err := q.db.Query(ctx, listCommutesByUser, userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Commute{}
+	items := []ListCommutesByUserRow{}
 	for rows.Next() {
-		var i Commute
+		var i ListCommutesByUserRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
 			&i.Name,
 			&i.HomePoint,
 			&i.OfficePoint,
-			&i.RouteGeometry,
 			&i.DistanceKm,
 			&i.DurationMin,
 			&i.Vehicle,
@@ -137,6 +188,7 @@ func (q *Queries) ListCommutesByUser(ctx context.Context, userID uuid.UUID) ([]C
 			&i.AnnualMinutes,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.RouteGeometry,
 		); err != nil {
 			return nil, err
 		}

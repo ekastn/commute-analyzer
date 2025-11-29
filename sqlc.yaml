@@ -22,19 +22,3 @@ sql:
             go_type:
               import: "time"
               type: "Time"
-
-
-          - column: "commutes.home_point"
-            go_type:
-              import: "github.com/paulmach/orb"
-              type: "Point"
-
-          - column: "commutes.office_point"
-            go_type:
-              import: "github.com/paulmach/orb"
-              type: "Point"
-
-          - column: "commutes.route_geometry"
-            go_type:
-              import: "github.com/paulmach/orb"
-              type: "LineString"
