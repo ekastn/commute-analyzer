@@ -1,4 +1,3 @@
-import type { Commute } from "../lib/types";
 import { useCommutes } from "../hooks/useCommutes";
 import CommuteCard from "./CommuteCard";
 import { Loader2 } from "lucide-react";
