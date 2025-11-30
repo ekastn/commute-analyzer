@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useCommutes } from "../hooks/useCommutes";
-import { ArrowLeft, MapPin, Fuel, Calendar } from "lucide-react";
+import { ArrowLeft, MapPin, Fuel, Calendar, Laptop } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { useIsMobile } from "../hooks/useIsMobile";
 
 interface CommuteFormProps {
     onBack: () => void;
@@ -23,6 +24,7 @@ export default function CommuteForm({
     const { deviceId } = useAuth();
     const [loading, setLoading] = useState(false);
     const [name, setName] = useState("");
+    const isMobile = useIsMobile();
 
     const [form, setForm] = useState({
         vehicle: "motorcycle" as "car" | "motorcycle",
@@ -73,9 +75,19 @@ export default function CommuteForm({
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm">
-                    Pilih lokasi Rumah dan Kantor dengan mengklik tombol di bawah ini, lalu klik pada peta.
-                </div>
+                {isMobile ? (
+                    <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg p-4 flex items-center gap-3">
+                        <Laptop size={24} />
+                        <div>
+                            <p className="font-bold">Optimal di Desktop</p>
+                            <p className="text-sm">Form ini dioptimalkan untuk perangkat desktop. Gunakan desktop untuk pengalaman terbaik.</p>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm">
+                        Pilih lokasi Rumah dan Kantor dengan mengklik tombol di bawah ini, lalu klik pada peta.
+                    </div>
+                )}
 
                 {/* Commute Name Input */}
                 <div>
