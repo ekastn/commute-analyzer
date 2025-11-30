@@ -33,10 +33,10 @@ func NewORSClient(apiKey string, client *http.Client) ORSClient {
 	}
 }
 
-func (c *orsClient) FetchRoute(ctx context.Context, homeLng, homeLat, officeLng, officeLat float64) (*ORSResponse, error) {
+func (c *orsClient) FetchRoute(ctx context.Context, profile string, homeLng, homeLat, officeLng, officeLat float64) (*ORSResponse, error) {
 	url := fmt.Sprintf(
-		"https://api.openrouteservice.org/v2/directions/driving-car?api_key=%s&start=%f,%f&end=%f,%f",
-		c.apiKey, homeLng, homeLat, officeLng, officeLat,
+		"https://api.openrouteservice.org/v2/directions/%s?api_key=%s&start=%f,%f&end=%f,%f",
+		profile, c.apiKey, homeLng, homeLat, officeLng, officeLat,
 	)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)

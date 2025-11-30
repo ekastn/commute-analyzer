@@ -28,7 +28,19 @@ func (s *CommuteService) CreateCommute(ctx context.Context, req dto.CreateCommut
 		return nil, err
 	}
 
-	route, err := s.ors.FetchRoute(ctx, req.HomeLng, req.HomeLat, req.OfficeLng, req.OfficeLat)
+	// Map vehicle to ORS profile
+	profile := "driving-car" // Default profile
+
+	switch req.Vehicle {
+	case "car":
+		profile = "driving-car"
+	case "motorcycle":
+		profile = "cycling-regular"
+	// case "bicycle": // Example for future expansion
+	// 	profile = "cycling-regular"
+	}
+
+	route, err := s.ors.FetchRoute(ctx, profile, req.HomeLng, req.HomeLat, req.OfficeLng, req.OfficeLat)
 	if err != nil {
 		return nil, fmt.Errorf("fetch route: %w", err)
 	}
