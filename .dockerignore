@@ -1,0 +1,30 @@
+# Git
+.git
+.gitignore
+
+# Go
+bin/
+tmp/
+*.test
+*.out
+commute-api
+
+# Node
+web/node_modules/
+web/dist/
+web/.env.local
+web/.env.development.local
+web/.env.test.local
+web/.env.production.local
+web/npm-debug.log*
+web/yarn-debug.log*
+web/yarn-error.log*
+web/pnpm-debug.log*
+
+# Environment
+.env
+.env.*
+
+# OS
+.DS_Store
+Thumbs.db

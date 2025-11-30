@@ -1,0 +1,35 @@
+# Stage 1: Build
+FROM golang:1.24-alpine AS builder
+
+WORKDIR /app
+
+# Install build dependencies (if any needed for CGO, though we probably don't need it)
+RUN apk add --no-cache git
+
+# Copy module files first for caching
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Build the binary
+# CGO_ENABLED=0 for static binary
+RUN CGO_ENABLED=0 GOOS=linux go build -o commute-api ./cmd/api/main.go
+
+# Stage 2: Runtime
+FROM alpine:latest
+
+WORKDIR /root/
+
+# Install ca-certificates for external API calls (ORS)
+RUN apk --no-cache add ca-certificates
+
+# Copy binary from builder
+COPY --from=builder /app/commute-api .
+
+# Expose port (default 8080)
+EXPOSE 8080
+
+# Run
+CMD ["./commute-api"]

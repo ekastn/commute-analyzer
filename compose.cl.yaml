@@ -6,8 +6,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    ports:
-      - "${POSTGRES_PORT}:5432"
     volumes:
       - commute-analyzer-data:/var/lib/postgresql/data
     healthcheck:
@@ -20,17 +18,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.api
-    restart: always
-    ports:
-      - "8080:8080"
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable
       ORS_API_KEY: ${ORS_API_KEY}
       SRV_ADDR: :8080 
       SRV_ENV: prod
-    depends_on:
-      db:
-        condition: service_healthy
 
   web:
     build:
@@ -38,9 +30,6 @@ services:
       dockerfile: Dockerfile.web
       args:
         VITE_API_URL: /api/v1
-    restart: always
-    ports:
-      - "3000:80"
     environment:
       BACKEND_URL: http://api:8080
 
