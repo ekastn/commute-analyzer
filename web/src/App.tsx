@@ -2,13 +2,15 @@ import { useState } from "react";
 import Sidebar from "./components/Sidebar";
 import Map from "./components/Map";
 import CommuteForm from "./components/CommuteForm";
-import { Plus } from "lucide-react";
+import { Plus, Info } from "lucide-react";
 import { useCommutes } from "./hooks/useCommutes";
+import AboutModal from "./components/AboutModal";
 
 function App() {
     const [selectedCommuteId, setSelectedCommuteId] = useState<string | null>(null);
     const [isCreating, setIsCreating] = useState(false);
     const { commutes, isLoading } = useCommutes();
+    const [showAbout, setShowAbout] = useState(false);
 
     const [draftPoints, setDraftPoints] = useState<{
         home: { lat: number; lng: number } | null;
@@ -30,7 +32,12 @@ function App() {
         <div className="h-screen flex flex-col md:flex-row">
             <div className="w-full md:w-96 bg-white shadow-xl flex flex-col">
                 <div className="p-6 border-b flex items-center justify-between">
-                    <h1 className="text-2xl font-bold text-gray-800">Commutes</h1>
+                    <div className="flex items-center gap-2">
+                        <h1 className="text-2xl font-bold text-gray-800">Commutes</h1>
+                        <button onClick={() => setShowAbout(true)} className="p-1 hover:bg-gray-100 rounded-full transition">
+                            <Info size={20} className="text-gray-500" />
+                        </button>
+                    </div>
                     {!isCreating && (
                         <button
                             onClick={() => {
@@ -76,6 +83,7 @@ function App() {
                     onMapClick={handleMapClick}
                 />
             </div>
+            {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}
         </div>
     );
 }
