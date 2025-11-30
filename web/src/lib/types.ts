@@ -3,8 +3,9 @@ export interface Commute {
     name: string;
     home_lng: number;
     home_lat: number;
-    office_lng: number;
     office_lat: number;
+    office_lng: number;
+    route_geometry?: number[][];
     distance_km: number;
     duration_min: number;
     vehicle: "car" | "motorcycle";

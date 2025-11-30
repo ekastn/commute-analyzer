@@ -22,6 +22,7 @@ export default function CommuteForm({
     const { createCommute } = useCommutes();
     const { deviceId } = useAuth();
     const [loading, setLoading] = useState(false);
+    const [name, setName] = useState("");
 
     const [form, setForm] = useState({
         vehicle: "motorcycle" as "car" | "motorcycle",
@@ -36,11 +37,16 @@ export default function CommuteForm({
             return;
         }
 
+        if (!name.trim()) {
+            alert("Mohon masukkan nama rute.");
+            return;
+        }
+
         setLoading(true);
         try {
             await createCommute({
-                device_id: deviceId!, // Guaranteed by useAuth/App logic usually, but safe to force here
-                name: "Rute Baru",
+                device_id: deviceId!,
+                name: name.trim(),
                 home_lat: draftPoints.home.lat,
                 home_lng: draftPoints.home.lng,
                 office_lat: draftPoints.office.lat,
@@ -71,15 +77,31 @@ export default function CommuteForm({
                     Pilih lokasi Rumah dan Kantor dengan mengklik tombol di bawah ini, lalu klik pada peta.
                 </div>
 
+                {/* Commute Name Input */}
+                <div>
+                    <label htmlFor="commute-name" className="block text-sm font-medium mb-2">
+                        Nama Rute
+                    </label>
+                    <input
+                        id="commute-name"
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                        placeholder="Ex: Rute Harian Kantor"
+                        required
+                    />
+                </div>
+
                 {/* Location Picker Buttons */}
                 <div className="space-y-4">
                     <button
                         type="button"
                         onClick={() => setPickingMode("home")}
-                        className={`w-full bg-white rounded-lg shadow-sm border p-4 text-left transition-all ${
+                        className={`w-full rounded-lg shadow-sm border p-4 text-left transition-all ${
                             pickingMode === "home"
-                                ? "ring-2 ring-blue-500 border-transparent"
-                                : "hover:border-blue-300"
+                                ? "ring-2 ring-blue-500 bg-blue-50 text-blue-800 border-transparent"
+                                : "bg-white hover:border-blue-300"
                         }`}
                     >
                         <div className="flex items-center gap-3">
@@ -100,10 +122,10 @@ export default function CommuteForm({
                     <button
                         type="button"
                         onClick={() => setPickingMode("office")}
-                        className={`w-full bg-white rounded-lg shadow-sm border p-4 text-left transition-all ${
+                        className={`w-full rounded-lg shadow-sm border p-4 text-left transition-all ${
                             pickingMode === "office"
-                                ? "ring-2 ring-blue-500 border-transparent"
-                                : "hover:border-blue-300"
+                                ? "ring-2 ring-blue-500 bg-blue-50 text-blue-800 border-transparent"
+                                : "bg-white hover:border-blue-300"
                         }`}
                     >
                         <div className="flex items-center gap-3">

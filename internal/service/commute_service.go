@@ -46,9 +46,6 @@ func (s *CommuteService) CreateCommute(ctx context.Context, req dto.CreateCommut
 	annualMinutes := int64(durationMin*2) * int64(req.DaysPerWeek) * 52
 
 	name := req.Name
-	if name == "" {
-		name = fmt.Sprintf("Rute %s (%.1f km)", req.Vehicle, distanceKm)
-	}
 
 	homePoint := orb.Point{req.HomeLng, req.HomeLat}
 	officePoint := orb.Point{req.OfficeLng, req.OfficeLat}
@@ -66,8 +63,8 @@ func (s *CommuteService) CreateCommute(ctx context.Context, req dto.CreateCommut
 		DistanceKm:    distanceKm,
 		DurationMin:   durationMin,
 		Vehicle:       req.Vehicle,
-		FuelPrice:     req.FuelPrice,
-		DaysPerWeek:   req.DaysPerWeek,
+		FuelPrice:     int32(req.FuelPrice),
+		DaysPerWeek:   int16(req.DaysPerWeek),
 		AnnualCost:    annualCost,
 		AnnualMinutes: annualMinutes,
 	})
@@ -76,17 +73,18 @@ func (s *CommuteService) CreateCommute(ctx context.Context, req dto.CreateCommut
 	}
 
 	return &dto.Commute{
-		ID:             row.ID,
+		ID:             row.ID.String(),
 		Name:           name,
 		HomeLng:        req.HomeLng,
 		HomeLat:        req.HomeLat,
 		OfficeLng:      req.OfficeLng,
 		OfficeLat:      req.OfficeLat,
+		RouteGeometry:  &lineString,
 		DistanceKm:     distanceKm,
 		DurationMin:    durationMin,
 		Vehicle:        req.Vehicle,
-		FuelPrice:      req.FuelPrice,
-		DaysPerWeek:    req.DaysPerWeek,
+		FuelPrice:      int32(req.FuelPrice),
+		DaysPerWeek:    int32(req.DaysPerWeek),
 		AnnualCostRp:   annualCost,
 		AnnualMinutes:  annualMinutes,
 		AnnualHours:    float64(annualMinutes) / 60,
@@ -120,18 +118,22 @@ func (s *CommuteService) ListCommutes(ctx context.Context, deviceID string) (*dt
 		homePoint := homeGeom.(orb.Point)
 		officePoint := officeGeom.(orb.Point)
 
+		routeGeom, _ := wkb.Unmarshal(r.RouteGeometry.([]byte))
+		routeLineString, _ := routeGeom.(orb.LineString)
+
 		commutes[i] = dto.Commute{
-			ID:             r.ID,
+			ID:             r.ID.String(),
 			Name:           name,
 			HomeLng:        homePoint.Lon(),
 			HomeLat:        homePoint.Lat(),
 			OfficeLng:      officePoint.Lon(),
 			OfficeLat:      officePoint.Lat(),
+			RouteGeometry:  &routeLineString,
 			DistanceKm:     r.DistanceKm,
 			DurationMin:    r.DurationMin,
 			Vehicle:        r.Vehicle,
 			FuelPrice:      r.FuelPrice,
-			DaysPerWeek:    r.DaysPerWeek,
+			DaysPerWeek:    int32(r.DaysPerWeek),
 			AnnualCostRp:   r.AnnualCost,
 			AnnualMinutes:  r.AnnualMinutes,
 			AnnualHours:    float64(r.AnnualMinutes) / 60,
@@ -162,18 +164,22 @@ func (s *CommuteService) UpdateCommute(ctx context.Context, id uuid.UUID, req dt
 	hPoint := hGeom.(orb.Point)
 	oPoint := oGeom.(orb.Point)
 
+	rGeom, _ := wkb.Unmarshal(row.RouteGeometry.([]byte))
+	rLineString, _ := rGeom.(orb.LineString)
+
 	commute := &dto.Commute{
-		ID:             row.ID,
+		ID:             row.ID.String(),
 		Name:           *row.Name,
 		HomeLng:        hPoint.Lon(),
 		HomeLat:        hPoint.Lat(),
 		OfficeLng:      oPoint.Lon(),
 		OfficeLat:      oPoint.Lat(),
+		RouteGeometry:  &rLineString,
 		DistanceKm:     row.DistanceKm,
 		DurationMin:    row.DurationMin,
 		Vehicle:        row.Vehicle,
 		FuelPrice:      row.FuelPrice,
-		DaysPerWeek:    row.DaysPerWeek,
+		DaysPerWeek:    int32(row.DaysPerWeek),
 		AnnualCostRp:   row.AnnualCost,
 		AnnualMinutes:  row.AnnualMinutes,
 		AnnualHours:    float64(row.AnnualMinutes) / 60,

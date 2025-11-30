@@ -3,10 +3,12 @@ import Sidebar from "./components/Sidebar";
 import Map from "./components/Map";
 import CommuteForm from "./components/CommuteForm";
 import { Plus } from "lucide-react";
+import { useCommutes } from "./hooks/useCommutes";
 
 function App() {
     const [selectedCommuteId, setSelectedCommuteId] = useState<string | null>(null);
     const [isCreating, setIsCreating] = useState(false);
+    const { commutes, isLoading } = useCommutes();
 
     const [draftPoints, setDraftPoints] = useState<{
         home: { lat: number; lng: number } | null;
@@ -28,7 +30,7 @@ function App() {
         <div className="h-screen flex flex-col md:flex-row">
             <div className="w-full md:w-96 bg-white shadow-xl flex flex-col">
                 <div className="p-6 border-b flex items-center justify-between">
-                    <h1 className="text-2xl font-bold text-gray-800">CommuteOS</h1>
+                    <h1 className="text-2xl font-bold text-gray-800">Commutes</h1>
                     {!isCreating && (
                         <button
                             onClick={() => {
@@ -36,10 +38,9 @@ function App() {
                                 setSelectedCommuteId(null);
                                 setDraftPoints({ home: null, office: null });
                             }}
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition"
+                            className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-lg transition"
                         >
-                            <Plus size={20} />
-                            <span className="hidden sm:inline">Buat Rute Baru</span>
+                            <Plus size={24} />
                         </button>
                     )}
                 </div>
@@ -56,13 +57,19 @@ function App() {
                             setPickingMode={setPickingMode}
                         />
                     ) : (
-                        <Sidebar onSelect={setSelectedCommuteId} selectedId={selectedCommuteId} />
+                        <Sidebar 
+                            commutes={commutes} 
+                            isLoading={isLoading} 
+                            onSelect={setSelectedCommuteId} 
+                            selectedId={selectedCommuteId} 
+                        />
                     )}
                 </div>
             </div>
 
             <div className="flex-1 relative">
                 <Map
+                    commutes={commutes}
                     selectedCommuteId={selectedCommuteId}
                     draftPoints={isCreating ? draftPoints : null}
                     pickingMode={pickingMode}

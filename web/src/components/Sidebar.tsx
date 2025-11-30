@@ -1,16 +1,20 @@
-import { useCommutes } from "../hooks/useCommutes";
 import CommuteCard from "./CommuteCard";
 import { Loader2 } from "lucide-react";
+import type { Commute } from "../lib/types";
 
-export default function Sidebar({
-    onSelect,
-    selectedId,
-}: {
+interface SidebarProps {
+    commutes: Commute[];
+    isLoading: boolean;
     onSelect: (id: string) => void;
     selectedId: string | null;
-}) {
-    const { commutes, isLoading } = useCommutes();
+}
 
+export default function Sidebar({
+    commutes,
+    isLoading,
+    onSelect,
+    selectedId,
+}: SidebarProps) {
     if (isLoading) {
         return (
             <div className="flex-1 flex items-center justify-center">
