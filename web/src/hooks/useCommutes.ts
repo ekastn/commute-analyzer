@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     listCommutes,
     createCommute,
+    updateCommute as updateCommuteService,
     deleteCommute as deleteCommuteService,
 } from "../services/commuteService";
 import type { Commute } from "../lib/types";
@@ -23,18 +24,24 @@ export const useCommutes = () => {
 
     const createMutation = useMutation({
         mutationFn: createCommute,
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ["commutes"] }),
+        onSettled: () => queryClient.invalidateQueries({ queryKey: ["commutes"] }),
+    });
+
+    const updateMutation = useMutation({
+        mutationFn: ({ id, data }: { id: string; data: Partial<Commute> }) => updateCommuteService(id, data),
+        onSettled: () => queryClient.invalidateQueries({ queryKey: ["commutes"] }),
     });
 
     const deleteMutation = useMutation({
         mutationFn: ({ id }: { id: string }) => deleteCommuteService(id),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ["commutes"] }),
+        onSettled: () => queryClient.invalidateQueries({ queryKey: ["commutes"] }),
     });
 
     return {
         commutes,
         isLoading,
         createCommute: createMutation.mutateAsync,
+        updateCommute: updateMutation.mutateAsync,
         deleteCommute: deleteMutation.mutateAsync,
     };
 };

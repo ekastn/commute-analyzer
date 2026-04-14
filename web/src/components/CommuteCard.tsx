@@ -1,15 +1,17 @@
 import type { Commute } from "../lib/types";
-import { Trash2, Car, Bike } from "lucide-react";
+import { Trash2, Car, Bike, Pencil } from "lucide-react";
 import { useCommutes } from "../hooks/useCommutes";
 
 export default function CommuteCard({
     commute,
     isSelected,
     onClick,
+    onEdit,
 }: {
     commute: Commute;
     isSelected: boolean;
     onClick: () => void;
+    onEdit?: () => void;
 }) {
     const { deleteCommute } = useCommutes();
 
@@ -37,15 +39,28 @@ export default function CommuteCard({
                         </p>
                     </div>
                 </div>
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        deleteCommute({ id: commute.id });
-                    }}
-                    className="text-gray-400 hover:text-red-600 transition"
-                >
-                    <Trash2 size={18} />
-                </button>
+                <div className="flex items-center gap-1">
+                    {onEdit && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onEdit();
+                            }}
+                            className="text-gray-400 hover:text-blue-600 transition"
+                        >
+                            <Pencil size={18} />
+                        </button>
+                    )}
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            deleteCommute({ id: commute.id });
+                        }}
+                        className="text-gray-400 hover:text-red-600 transition"
+                    >
+                        <Trash2 size={18} />
+                    </button>
+                </div>
             </div>
         </div>
     );

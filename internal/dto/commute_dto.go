@@ -15,7 +15,14 @@ type CreateCommuteRequest struct {
 }
 
 type UpdateCommuteRequest struct {
-	Name string `json:"name" binding:"required"`
+	Name        *string  `json:"name"`
+	Vehicle     *string  `json:"vehicle"`
+	FuelPrice   *int     `json:"fuel_price"`
+	DaysPerWeek *int     `json:"days_per_week"`
+	HomeLat     *float64 `json:"home_lat"`
+	HomeLng     *float64 `json:"home_lng"`
+	OfficeLat   *float64 `json:"office_lat"`
+	OfficeLng   *float64 `json:"office_lng"`
 }
 
 type Commute struct {

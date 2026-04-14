@@ -7,6 +7,7 @@ interface SidebarProps {
     isLoading: boolean;
     onSelect: (id: string) => void;
     selectedId: string | null;
+    onEdit?: (commute: Commute) => void;
 }
 
 export default function Sidebar({
@@ -14,6 +15,7 @@ export default function Sidebar({
     isLoading,
     onSelect,
     selectedId,
+    onEdit,
 }: SidebarProps) {
     if (isLoading) {
         return (
@@ -43,6 +45,7 @@ export default function Sidebar({
                     commute={commute}
                     isSelected={selectedId === commute.id}
                     onClick={() => onSelect(commute.id)}
+                    onEdit={onEdit ? () => onEdit(commute) : undefined}
                 />
             ))}
         </div>

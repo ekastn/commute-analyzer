@@ -5,11 +5,13 @@ import CommuteForm from "./components/CommuteForm";
 import { Plus, Info } from "lucide-react";
 import { useCommutes } from "./hooks/useCommutes";
 import AboutModal from "./components/AboutModal";
+import type { Commute } from "./lib/types";
 
 function App() {
     const [selectedCommuteId, setSelectedCommuteId] = useState<string | null>(null);
     const [isCreating, setIsCreating] = useState(false);
-    const { commutes, isLoading } = useCommutes();
+    const [editingCommute, setEditingCommute] = useState<Commute | null>(null);
+    const { commutes, isLoading, updateCommute } = useCommutes();
     const [showAbout, setShowAbout] = useState(false);
 
     const [draftPoints, setDraftPoints] = useState<{
@@ -28,6 +30,19 @@ function App() {
         setPickingMode(null);
     };
 
+    const handleEdit = (commute: Commute) => {
+        setEditingCommute(commute);
+        setSelectedCommuteId(null);
+    };
+
+    const handleBack = () => {
+        setIsCreating(false);
+        setEditingCommute(null);
+        setPickingMode(null);
+    };
+
+    const isFormOpen = isCreating || !!editingCommute;
+
     return (
         <div className="h-screen flex flex-col md:flex-row">
             <div className="w-full md:w-96 bg-white shadow-xl flex flex-col">
@@ -38,7 +53,7 @@ function App() {
                             <Info size={20} className="text-gray-500" />
                         </button>
                     </div>
-                    {!isCreating && (
+                    {!isFormOpen && (
                         <button
                             onClick={() => {
                                 setIsCreating(true);
@@ -53,22 +68,26 @@ function App() {
                 </div>
 
                 <div className="flex-1 overflow-y-auto">
-                    {isCreating ? (
+                    {isFormOpen ? (
                         <CommuteForm
-                            onBack={() => {
-                                setIsCreating(false);
-                                setPickingMode(null);
-                            }}
+                            onBack={handleBack}
                             draftPoints={draftPoints}
                             pickingMode={pickingMode}
                             setPickingMode={setPickingMode}
+                            commute={editingCommute}
+                            onEdit={async (data) => {
+                                if (editingCommute) {
+                                    await updateCommute({ id: editingCommute.id, data });
+                                }
+                            }}
                         />
                     ) : (
-                        <Sidebar 
-                            commutes={commutes} 
-                            isLoading={isLoading} 
-                            onSelect={setSelectedCommuteId} 
-                            selectedId={selectedCommuteId} 
+                        <Sidebar
+                            commutes={commutes}
+                            isLoading={isLoading}
+                            onSelect={setSelectedCommuteId}
+                            selectedId={selectedCommuteId}
+                            onEdit={handleEdit}
                         />
                     )}
                 </div>
@@ -78,7 +97,7 @@ function App() {
                 <Map
                     commutes={commutes}
                     selectedCommuteId={selectedCommuteId}
-                    draftPoints={isCreating ? draftPoints : null}
+                    draftPoints={isFormOpen ? draftPoints : null}
                     pickingMode={pickingMode}
                     onMapClick={handleMapClick}
                 />

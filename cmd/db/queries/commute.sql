@@ -33,7 +33,33 @@ SELECT
 FROM commutes WHERE user_id = $1 ORDER BY created_at DESC;
 
 -- name: UpdateCommute :one
-UPDATE commutes SET name = $2, updated_at = NOW() WHERE id = $1 RETURNING id;
+UPDATE commutes SET
+    name = COALESCE(sqlc.narg(name), name),
+    vehicle = COALESCE(sqlc.narg(vehicle), vehicle),
+    fuel_price = COALESCE(sqlc.narg(fuel_price), fuel_price),
+    days_per_week = COALESCE(sqlc.narg(days_per_week), days_per_week),
+    home_point = CASE
+        WHEN sqlc.narg(home_point)::bytea IS NOT NULL
+        THEN ST_SetSRID(ST_GeomFromWKB(sqlc.narg(home_point)::bytea), 4326)
+        ELSE home_point
+    END,
+    office_point = CASE
+        WHEN sqlc.narg(office_point)::bytea IS NOT NULL
+        THEN ST_SetSRID(ST_GeomFromWKB(sqlc.narg(office_point)::bytea), 4326)
+        ELSE office_point
+    END,
+    route_geometry = CASE
+        WHEN sqlc.narg(route_geometry)::bytea IS NOT NULL
+        THEN ST_SetSRID(ST_GeomFromWKB(sqlc.narg(route_geometry)::bytea), 4326)
+        ELSE route_geometry
+    END,
+    distance_km = COALESCE(sqlc.narg(distance_km), distance_km),
+    duration_min = COALESCE(sqlc.narg(duration_min), duration_min),
+    annual_cost = COALESCE(sqlc.narg(annual_cost), annual_cost),
+    annual_minutes = COALESCE(sqlc.narg(annual_minutes), annual_minutes),
+    updated_at = NOW()
+WHERE id = $1
+RETURNING id, annual_cost, annual_minutes, created_at;
 
 -- name: DeleteCommute :exec
 DELETE FROM commutes WHERE id = $1;

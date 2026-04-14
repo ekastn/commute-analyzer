@@ -14,12 +14,12 @@ import (
 
 type CommuteService struct {
 	store       store.Querier
-	ors         ORSClient
+	routing     RoutingService
 	userService *UserService
 }
 
-func NewCommuteService(store store.Querier, ors ORSClient, userService *UserService) *CommuteService {
-	return &CommuteService{store: store, ors: ors, userService: userService}
+func NewCommuteService(store store.Querier, routing RoutingService, userService *UserService) *CommuteService {
+	return &CommuteService{store: store, routing: routing, userService: userService}
 }
 
 func (s *CommuteService) CreateCommute(ctx context.Context, req dto.CreateCommuteRequest) (*dto.Commute, error) {
@@ -28,7 +28,7 @@ func (s *CommuteService) CreateCommute(ctx context.Context, req dto.CreateCommut
 		return nil, err
 	}
 
-	// Map vehicle to ORS profile
+	// Map vehicle to routing profile
 	profile := "driving-car" // Default profile
 
 	switch req.Vehicle {
@@ -40,16 +40,15 @@ func (s *CommuteService) CreateCommute(ctx context.Context, req dto.CreateCommut
 	// 	profile = "cycling-regular"
 	}
 
-	route, err := s.ors.FetchRoute(ctx, profile, req.HomeLng, req.HomeLat, req.OfficeLng, req.OfficeLat)
+	route, err := s.routing.GetRoute(ctx, profile, Coord{Lat: req.HomeLat, Lng: req.HomeLng}, Coord{Lat: req.OfficeLat, Lng: req.OfficeLng})
 	if err != nil {
 		return nil, fmt.Errorf("fetch route: %w", err)
 	}
 
-	summary := route.Features[0].Properties.Summary
-	distanceKm := summary.Distance / 1000
-	durationMin := summary.Duration / 60
+	distanceKm := route.DistanceKm
+	durationMin := route.DurationMin
 
-	lineString := coordsToLineString(route.Features[0].Geometry.Coordinates)
+	lineString := coordsToLineString(route.Coordinates)
 
 	efficiency := map[string]float64{"car": 10.0, "motorcycle": 2.5}[req.Vehicle]
 	roundTrip := distanceKm * 2
@@ -158,47 +157,141 @@ func (s *CommuteService) ListCommutes(ctx context.Context, deviceID string) (*dt
 }
 
 func (s *CommuteService) UpdateCommute(ctx context.Context, id uuid.UUID, req dto.UpdateCommuteRequest) (*dto.Commute, error) {
-	id, err := s.store.UpdateCommute(ctx, store.UpdateCommuteParams{
-		ID:   id,
-		Name: &req.Name,
+	// Fetch existing commute to get current values
+	existing, err := s.store.GetCommute(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("fetch existing: %w", err)
+	}
+
+	// Merge values: use request values if provided, otherwise fall back to existing
+	name := existing.Name
+	if req.Name != nil {
+		name = req.Name
+	}
+
+	vehicle := existing.Vehicle
+	if req.Vehicle != nil {
+		vehicle = *req.Vehicle
+	}
+
+	fuelPrice := existing.FuelPrice
+	if req.FuelPrice != nil {
+		fuelPrice = int32(*req.FuelPrice)
+	}
+
+	daysPerWeek := existing.DaysPerWeek
+	if req.DaysPerWeek != nil {
+		daysPerWeek = int16(*req.DaysPerWeek)
+	}
+
+	// Parse existing coordinates
+	existingHomeGeom, _ := wkb.Unmarshal(existing.HomePoint.([]byte))
+	existingOfficeGeom, _ := wkb.Unmarshal(existing.OfficePoint.([]byte))
+	existingHome := existingHomeGeom.(orb.Point)
+	existingOffice := existingOfficeGeom.(orb.Point)
+
+	// Determine if coordinates changed
+	coordsChanged := false
+	var homeLat, homeLng, officeLat, officeLng float64
+
+	if req.HomeLat != nil && req.HomeLng != nil && req.OfficeLat != nil && req.OfficeLng != nil {
+		homeLat, homeLng = *req.HomeLat, *req.HomeLng
+		officeLat, officeLng = *req.OfficeLat, *req.OfficeLng
+		if homeLat != existingHome.Lat() || homeLng != existingHome.Lon() ||
+			officeLat != existingOffice.Lat() || officeLng != existingOffice.Lon() {
+			coordsChanged = true
+		}
+	} else {
+		// No coordinate update requested, use existing
+		homeLat, homeLng = existingHome.Lat(), existingHome.Lon()
+		officeLat, officeLng = existingOffice.Lat(), existingOffice.Lon()
+	}
+
+	// Route calculation: conditional ORS/RoutingService call
+	distanceKm := existing.DistanceKm
+	durationMin := existing.DurationMin
+	var routeLineString orb.LineString
+
+	if coordsChanged {
+		// Map vehicle to routing profile
+		profile := "driving-car"
+		if vehicle == "motorcycle" {
+			profile = "cycling-regular"
+		}
+
+		route, err := s.routing.GetRoute(ctx, profile, Coord{Lat: homeLat, Lng: homeLng}, Coord{Lat: officeLat, Lng: officeLng})
+		if err != nil {
+			return nil, fmt.Errorf("fetch route: %w", err)
+		}
+
+		distanceKm = route.DistanceKm
+		durationMin = route.DurationMin
+		routeLineString = coordsToLineString(route.Coordinates)
+	} else {
+		// Reuse existing route geometry
+		existingRouteGeom, _ := wkb.Unmarshal(existing.RouteGeometry.([]byte))
+		routeLineString = existingRouteGeom.(orb.LineString)
+	}
+
+	// Recalculate costs (always, since vehicle/fuel/days may have changed)
+	efficiency := map[string]float64{"car": 10.0, "motorcycle": 2.5}[vehicle]
+	roundTrip := distanceKm * 2
+	dailyCost := (roundTrip * efficiency / 100) * float64(fuelPrice)
+	annualCost := int64(dailyCost * float64(daysPerWeek) * 52.142857)
+	annualMinutes := int64(durationMin*2) * int64(daysPerWeek) * 52
+
+	// Marshal geometry
+	homePoint := orb.Point{homeLng, homeLat}
+	officePoint := orb.Point{officeLng, officeLat}
+	homeWKB, _ := wkb.Marshal(homePoint)
+	officeWKB, _ := wkb.Marshal(officePoint)
+	routeWKB, _ := wkb.Marshal(routeLineString)
+
+	// Update database
+	row, err := s.store.UpdateCommute(ctx, store.UpdateCommuteParams{
+		ID:            id,
+		Name:          name,
+		Vehicle:       &vehicle,
+		FuelPrice:     &fuelPrice,
+		DaysPerWeek:   &daysPerWeek,
+		HomePoint:     homeWKB,
+		OfficePoint:   officeWKB,
+		RouteGeometry: routeWKB,
+		DistanceKm:    &distanceKm,
+		DurationMin:   &durationMin,
+		AnnualCost:    &annualCost,
+		AnnualMinutes: &annualMinutes,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("update: %w", err)
 	}
 
-	row, err := s.store.GetCommute(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-
-	hGeom, _ := wkb.Unmarshal(row.HomePoint.([]byte))
-	oGeom, _ := wkb.Unmarshal(row.OfficePoint.([]byte))
-	hPoint := hGeom.(orb.Point)
-	oPoint := oGeom.(orb.Point)
-
-	rGeom, _ := wkb.Unmarshal(row.RouteGeometry.([]byte))
-	rLineString, _ := rGeom.(orb.LineString)
-
-	commute := &dto.Commute{
-		ID:             row.ID.String(),
-		Name:           *row.Name,
-		HomeLng:        hPoint.Lon(),
-		HomeLat:        hPoint.Lat(),
-		OfficeLng:      oPoint.Lon(),
-		OfficeLat:      oPoint.Lat(),
-		RouteGeometry:  &rLineString,
-		DistanceKm:     row.DistanceKm,
-		DurationMin:    row.DurationMin,
-		Vehicle:        row.Vehicle,
-		FuelPrice:      row.FuelPrice,
-		DaysPerWeek:    int32(row.DaysPerWeek),
+	return &dto.Commute{
+		ID:             existing.ID.String(),
+		Name:           safeString(name),
+		HomeLng:        homeLng,
+		HomeLat:        homeLat,
+		OfficeLng:      officeLng,
+		OfficeLat:      officeLat,
+		RouteGeometry:  &routeLineString,
+		DistanceKm:     distanceKm,
+		DurationMin:    durationMin,
+		Vehicle:        vehicle,
+		FuelPrice:      fuelPrice,
+		DaysPerWeek:    int32(daysPerWeek),
 		AnnualCostRp:   row.AnnualCost,
 		AnnualMinutes:  row.AnnualMinutes,
 		AnnualHours:    float64(row.AnnualMinutes) / 60,
 		AnnualWorkdays: float64(row.AnnualMinutes) / (60 * 8),
 		CreatedAt:      row.CreatedAt.Format(time.RFC3339),
+	}, nil
+}
+
+func safeString(s *string) string {
+	if s == nil {
+		return ""
 	}
-	return commute, nil
+	return *s
 }
 
 func (s *CommuteService) DeleteCommute(ctx context.Context, id uuid.UUID) error {

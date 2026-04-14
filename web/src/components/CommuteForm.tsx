@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useCommutes } from "../hooks/useCommutes";
 import { ArrowLeft, MapPin, Fuel, Calendar, Laptop } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useIsMobile } from "../hooks/useIsMobile";
+import type { Commute } from "../lib/types";
 
 interface CommuteFormProps {
     onBack: () => void;
@@ -12,6 +13,8 @@ interface CommuteFormProps {
     };
     pickingMode: "home" | "office" | null;
     setPickingMode: (mode: "home" | "office" | null) => void;
+    commute?: Commute | null;
+    onEdit?: (data: Partial<Commute>) => Promise<void>;
 }
 
 export default function CommuteForm({
@@ -19,22 +22,42 @@ export default function CommuteForm({
     draftPoints,
     pickingMode,
     setPickingMode,
+    commute,
+    onEdit,
 }: CommuteFormProps) {
     const { createCommute } = useCommutes();
     const { deviceId } = useAuth();
     const [loading, setLoading] = useState(false);
-    const [name, setName] = useState("");
     const isMobile = useIsMobile();
 
+    const isEditMode = !!commute;
+
+    const [name, setName] = useState(commute?.name ?? "");
     const [form, setForm] = useState({
-        vehicle: "motorcycle" as "car" | "motorcycle",
-        fuel_price: 10000,
-        days_per_week: 5,
+        vehicle: (commute?.vehicle ?? "motorcycle") as "car" | "motorcycle",
+        fuel_price: commute?.fuel_price ?? 10000,
+        days_per_week: commute?.days_per_week ?? 5,
     });
+
+    // Sync form when commute prop changes
+    useEffect(() => {
+        if (commute) {
+            setName(commute.name);
+            setForm({
+                vehicle: commute.vehicle,
+                fuel_price: commute.fuel_price,
+                days_per_week: commute.days_per_week,
+            });
+        }
+    }, [commute]);
+
+    const effectiveHome = draftPoints.home ?? (isEditMode ? { lat: commute.home_lat, lng: commute.home_lng } : null);
+
+    const effectiveOffice = draftPoints.office ?? (isEditMode ? { lat: commute.office_lat, lng: commute.office_lng } : null);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!draftPoints.home || !draftPoints.office) {
+        if (!effectiveHome || !effectiveOffice) {
             alert("Mohon pilih lokasi Rumah dan Kantor di peta.");
             return;
         }
@@ -46,15 +69,26 @@ export default function CommuteForm({
 
         setLoading(true);
         try {
-            await createCommute({
-                device_id: deviceId!,
-                name: name.trim(),
-                home_lat: draftPoints.home.lat,
-                home_lng: draftPoints.home.lng,
-                office_lat: draftPoints.office.lat,
-                office_lng: draftPoints.office.lng,
-                ...form,
-            });
+            if (isEditMode && commute && onEdit) {
+                await onEdit({
+                    name: name.trim(),
+                    home_lat: effectiveHome.lat,
+                    home_lng: effectiveHome.lng,
+                    office_lat: effectiveOffice.lat,
+                    office_lng: effectiveOffice.lng,
+                    ...form,
+                });
+            } else {
+                await createCommute({
+                    device_id: deviceId!,
+                    name: name.trim(),
+                    home_lat: effectiveHome.lat,
+                    home_lng: effectiveHome.lng,
+                    office_lat: effectiveOffice.lat,
+                    office_lng: effectiveOffice.lng,
+                    ...form,
+                });
+            }
             onBack();
         } catch (err) {
             console.error("Save failed:", err);
@@ -71,7 +105,7 @@ export default function CommuteForm({
                 <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-lg">
                     <ArrowLeft size={24} />
                 </button>
-                <h2 className="text-xl font-bold">Buat Rute Baru</h2>
+                <h2 className="text-xl font-bold">{isEditMode ? "Edit Rute" : "Buat Rute Baru"}</h2>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
@@ -123,8 +157,8 @@ export default function CommuteForm({
                             <div>
                                 <p className="font-medium">Lokasi Rumah</p>
                                 <p className="text-sm text-gray-600 truncate">
-                                    {draftPoints.home
-                                        ? `${draftPoints.home.lat.toFixed(5)}, ${draftPoints.home.lng.toFixed(5)}`
+                                    {effectiveHome
+                                        ? `${effectiveHome.lat.toFixed(5)}, ${effectiveHome.lng.toFixed(5)}`
                                         : "Klik untuk pilih di peta"}
                                 </p>
                             </div>
@@ -147,8 +181,8 @@ export default function CommuteForm({
                             <div>
                                 <p className="font-medium">Lokasi Kantor</p>
                                 <p className="text-sm text-gray-600 truncate">
-                                    {draftPoints.office
-                                        ? `${draftPoints.office.lat.toFixed(5)}, ${draftPoints.office.lng.toFixed(5)}`
+                                    {effectiveOffice
+                                        ? `${effectiveOffice.lat.toFixed(5)}, ${effectiveOffice.lng.toFixed(5)}`
                                         : "Klik untuk pilih di peta"}
                                 </p>
                             </div>
@@ -213,10 +247,10 @@ export default function CommuteForm({
 
                     <button
                         type="submit"
-                        disabled={loading || !draftPoints.home || !draftPoints.office}
+                        disabled={loading || !effectiveHome || !effectiveOffice}
                         className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-bold py-4 rounded-lg transition"
                     >
-                        {loading ? "Menyimpan..." : "Hitung & Simpan"}
+                        {loading ? "Menyimpan..." : isEditMode ? "Update" : "Hitung & Simpan"}
                     </button>
                 </form>
             </div>
